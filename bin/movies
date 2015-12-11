@@ -1,6 +1,117 @@
 r = require('rethinkdb')
 var connection = null;
-r.connect({ host: 'localhost', port: 28015 }, function(err, conn) {
+r.connect({
+  host: 'localhost',
+  port: 28015
+}, function(err, conn) {
   if (err) throw err;
-    connection = conn;
+  connection = conn;
 });
+
+var movies = r.db('test').table('movies');
+
+var mdb = require('moviedb')('70bc3bd0e08fd826de2ecda0db108941');
+var result;
+var poster_download_path;
+var backdrop_download_path;
+
+mdb.configuration(function(err, res) {
+  if (err) console.log(err);
+  poster_download_path = res.images.secure_base_url + res.images.poster_sizes[4];
+  backdrop_download_path = res.images.secure_base_url + res.images.backdrop_sizes[3];
+});
+
+var fs = require('fs'),
+  request = require('request');
+
+var movieLibrary = "/media/Drive1/Bio/Movies/";
+
+// Download images
+var download = function(uri, filename, callback) {
+  request.head(uri, function(err, res, body) {
+    console.log('content-type:', res.headers['content-type']);
+    console.log('content-length:', res.headers['content-length']);
+
+    request(uri).pipe(fs.createWriteStream(filename)).on('close', callback);
+  });
+};
+
+// Searches movie and gets full info, then downloads images, including poster and backdrop.
+// Then inserts it into database.
+var searchMovie = function(filename, fullpath) {
+  filename = filename.replace(/ \(.*$/g, '');
+  mdb.searchMovie({
+    query: filename
+  }, function(err, search_res) {
+    result = search_res.results[0];
+    console.log("searched for " + filename);
+    console.log(search_res);
+
+    // Fetch full movie info
+    mdb.movieInfo({
+      id: result.id
+    }, function(err, res) {
+      console.log("movie info now fetched");
+      console.log(filename);
+      // Download poster image
+      download(poster_download_path + res.poster_path, './public/images' + res.poster_path, function() {
+        console.log('poster download done');
+      });
+      // Download backdrop image
+      download(backdrop_download_path + res.backdrop_path, './public/images' + res.backdrop_path, function() {
+        console.log('backdrop download done');
+      });
+      var movie_info = res;
+      movie_info.fullpath = fullpath;
+
+      movies.insert(movie_info).run(connection);
+    });
+  });
+}
+
+var valid_file_extensions = [".mp4", ".webm"];
+
+// Search through all directories + sub directories
+var path = require('path');
+var walk = function(dir, done) {
+  var results = [];
+  fs.readdir(dir, function(err, list) {
+    if (err) return done(err);
+    var pending = list.length;
+    if (!pending) return done(null, results);
+
+    list.forEach(function(file) {
+      file = path.resolve(dir, file);
+      fs.stat(file, function(err, stat) {
+        if (stat && stat.isDirectory()) {
+          walk(file, function(err, res) {
+            results = results.concat(res);
+            if (!--pending) done(null, results);
+          });
+        } else {
+          var file_extension = path.extname(file);
+          // If the file extension is valid then add file to array
+          if(valid_file_extensions.indexOf(file_extension) !== -1){
+            results.push(file);
+          }
+          if (!--pending) done(null, results);
+        }
+      });
+    });
+  });
+};
+
+walk(movieLibrary, function(err, results) {
+  if (err) throw err;
+
+  results.forEach(function(file){
+    console.log(path.basename(file));
+    var basename = path.basename(file);
+    setTimeout(function () {
+      searchMovie(basename, file);
+    }, 1000);
+  });
+});
+
+
+//searchMovie('The Hobbit The Battle of the Five Armies', "Ted 2");
