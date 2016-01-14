@@ -88,3 +88,15 @@ function onListening() {
     : 'port ' + addr.port;
   debug('Listening on ' + bind);
 }
+
+
+
+
+
+
+/*
+
+Movie Scanner
+
+*/
+//var movies = require('./movies');

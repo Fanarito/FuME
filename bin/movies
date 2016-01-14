@@ -1,117 +1,167 @@
-r = require('rethinkdb')
+﻿r = require('rethinkdb')
 var connection = null;
 r.connect({
-  host: 'localhost',
-  port: 28015
+	host: 'localhost',
+	port: 28015
 }, function(err, conn) {
-  if (err) throw err;
-  connection = conn;
+	if (err) throw err;
+	connection = conn;
 });
 
-var movies = r.db('test').table('movies');
+var movies = r.db('FuME').table('movies');
 
 var mdb = require('moviedb')('70bc3bd0e08fd826de2ecda0db108941');
+var moment = require('moment');
 var result;
 var poster_download_path;
 var backdrop_download_path;
 
 mdb.configuration(function(err, res) {
-  if (err) console.log(err);
-  poster_download_path = res.images.secure_base_url + res.images.poster_sizes[4];
-  backdrop_download_path = res.images.secure_base_url + res.images.backdrop_sizes[3];
+	if (err) console.log(err);
+	poster_download_path = res.images.secure_base_url + res.images.poster_sizes[4];
+	backdrop_download_path = res.images.secure_base_url + res.images.backdrop_sizes[3];
 });
 
 var fs = require('fs'),
-  request = require('request');
+	request = require('request');
 
-var movieLibrary = "/media/Drive1/Bio/Movies/";
+var movieLibrary = ["/media/Drive1/Bio/Movies"/*, "/media/Drive2/Biosafn/Bíómyndir"*/];
 
 // Download images
 var download = function(uri, filename, callback) {
-  request.head(uri, function(err, res, body) {
-    console.log('content-type:', res.headers['content-type']);
-    console.log('content-length:', res.headers['content-length']);
+	request.head(uri, function(err, res, body) {
+		//console.log('content-type:', res.headers['content-type']);
+		//console.log('content-length:', res.headers['content-length']);
 
-    request(uri).pipe(fs.createWriteStream(filename)).on('close', callback);
-  });
+		request(uri).pipe(fs.createWriteStream(filename)).on('close', callback);
+	});
 };
+
+//var download = require('.downloadImages');
+
+// TMDB has a request limit, so this is to throttle requests
+function sleep(milliseconds) {
+	var start = new Date().getTime();
+	for (var i = 0; i < 1e7; i++) {
+		if ((new Date().getTime() - start) > milliseconds) {
+			break;
+		}
+	}
+}
 
 // Searches movie and gets full info, then downloads images, including poster and backdrop.
 // Then inserts it into database.
 var searchMovie = function(filename, fullpath) {
-  filename = filename.replace(/ \(.*$/g, '');
-  mdb.searchMovie({
-    query: filename
-  }, function(err, search_res) {
-    result = search_res.results[0];
-    console.log("searched for " + filename);
-    console.log(search_res);
+	try {
+		searchname = filename.replace(/ \(.*/g, '');
+		console.log(searchname);
+		mdb.searchMovie({
+			query: searchname
+		}, function(err, search_res) {
+			if (search_res) {
+				result = search_res.results[0];
+				console.log("searched for " + searchname);
 
-    // Fetch full movie info
-    mdb.movieInfo({
-      id: result.id
-    }, function(err, res) {
-      console.log("movie info now fetched");
-      console.log(filename);
-      // Download poster image
-      download(poster_download_path + res.poster_path, './public/images' + res.poster_path, function() {
-        console.log('poster download done');
-      });
-      // Download backdrop image
-      download(backdrop_download_path + res.backdrop_path, './public/images' + res.backdrop_path, function() {
-        console.log('backdrop download done');
-      });
-      var movie_info = res;
-      movie_info.fullpath = fullpath;
-
-      movies.insert(movie_info).run(connection);
-    });
-  });
+				// Fetch full movie info
+				if (result) {
+					console.log("fetching info for id: " + result);
+					getMovieByID(result.id, fullpath);
+				} else {
+					console.log('movie not found??????');
+				}
+			}
+		});
+	}
+	finally {
+		console.log("searched for movie or crash");
+	}
 }
 
-var valid_file_extensions = [".mp4", ".webm"];
+var getMovieByID = function(id, fullpath) {
+	try {
+		mdb.movieInfo({
+			id: id
+		}, function(err, res) {
+			console.log("movie info now fetched for " + res.original_title);
+
+			downloadImages(res);
+
+			var movie_info = res;
+			movie_info.fullpath = fullpath;
+			movie_info.moviedb_id = movie_info.id;
+			delete movie_info.id;
+
+			// Added time
+			movie_info.time_added = String(moment());
+
+			movies.insert(movie_info).run(connection);
+		});
+	}
+	finally {
+		console.log('this looks horrible');
+	}
+}
+
+var downloadImages = function(movie) {
+	// Download poster image
+	try {
+		console.log('downloading poster for ' + movie.original_title)
+		download(poster_download_path + movie.poster_path, './public/images' + movie.poster_path, function() {
+			console.log('poster download done');
+			console.log('downloading backdrop for' + movie.original_title)
+			download(backdrop_download_path + movie.backdrop_path, './public/images' + movie.backdrop_path, function() {
+				console.log('backdrop download done');
+			});
+		});
+	}
+	finally {
+		console.log("downloaded all images for " + movie.original_title);
+	}
+	// Download backdrop image
+
+}
+
+var valid_file_extensions = [".mp4", ".webm", ".mkv"];
 
 // Search through all directories + sub directories
 var path = require('path');
-var walk = function(dir, done) {
-  var results = [];
-  fs.readdir(dir, function(err, list) {
-    if (err) return done(err);
-    var pending = list.length;
-    if (!pending) return done(null, results);
 
-    list.forEach(function(file) {
-      file = path.resolve(dir, file);
-      fs.stat(file, function(err, stat) {
-        if (stat && stat.isDirectory()) {
-          walk(file, function(err, res) {
-            results = results.concat(res);
-            if (!--pending) done(null, results);
-          });
-        } else {
-          var file_extension = path.extname(file);
-          // If the file extension is valid then add file to array
-          if(valid_file_extensions.indexOf(file_extension) !== -1){
-            results.push(file);
-          }
-          if (!--pending) done(null, results);
-        }
-      });
-    });
-  });
+var walk = function(dir, done) {
+	var results = [];
+	fs.readdir(dir, function(err, list) {
+		if (err) return done(err);
+		var i = 0;
+		(function next() {
+			var file = list[i++];
+			if (!file) return done(null, results);
+			file = dir + '/' + file;
+			fs.stat(file, function(err, stat) {
+				if (stat && stat.isDirectory()) {
+					walk(file, function(err, res) {
+						results = results.concat(res);
+						next();
+					});
+				} else {
+					var file_extension = path.extname(file);
+					// If the file extension is valid then add file to array
+					if (valid_file_extensions.indexOf(file_extension) !== -1) {
+						results.push(file);
+						var basename = path.basename(file);
+						searchMovie(basename, file);
+						sleep(3000);
+					}
+					next();
+				}
+			});
+		})();
+	});
 };
 
-walk(movieLibrary, function(err, results) {
-  if (err) throw err;
-
-  results.forEach(function(file){
-    console.log(path.basename(file));
-    var basename = path.basename(file);
-    setTimeout(function () {
-      searchMovie(basename, file);
-    }, 1000);
-  });
+movieLibrary.forEach(function(element, index) {
+	console.log(element);
+	walk(element, function(err, results) {});
 });
+//walk(movieLibrary, function(err, results) {});
 
 
 //searchMovie('The Hobbit The Battle of the Five Armies', "Ted 2");

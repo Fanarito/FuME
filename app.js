@@ -7,6 +7,8 @@ var bodyParser = require('body-parser');
 
 var routes = require('./routes/index');
 var users = require('./routes/users');
+var movies = require('./routes/movies');
+var play = require('./routes/play');
 
 var app = express();
 
@@ -22,8 +24,16 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.use(function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
+});
+
 app.use('/', routes);
 app.use('/users', users);
+app.use('/movies', movies);
+app.use('/play', play);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
