@@ -97,7 +97,7 @@ router.get('/', function(req, res, next) {
 });
 
 router.get('/movies/:id', function(req, res, next) {
-	playMovie(req.params.id, res, '0:0:0');
+	playMovie(req.params.id, res, '0:0:1');
 });
 
 router.get('/movies/:id/:hour/:min/:sec/', function(req, res, next) {
