@@ -25,12 +25,14 @@ var playMovie = function(id, res, startTime) {
             .seekInput(startTime)
 			.format('webm')
 			.videoCodec('libvpx')
-			.videoBitrate('1500k')
-			//.fps(24)
+			.videoBitrate('2250k')
 			.size('?x720')
 			.audioBitrate('128k')
 			.audioChannels(2)
 			.audioCodec('libvorbis')
+			.inputOptions([
+				'-re'
+			])
 			.outputOptions([
 				'-threads 8',
 				//'-cpu-used 16',
