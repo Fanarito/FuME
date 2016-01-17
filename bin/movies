@@ -8,6 +8,8 @@ r.connect({
 	connection = conn;
 });
 
+var ffmpeg = require('fluent-ffmpeg');
+
 var movies = r.db('FuME').table('movies');
 
 var mdb = require('moviedb')('70bc3bd0e08fd826de2ecda0db108941');
@@ -51,7 +53,7 @@ function sleep(milliseconds) {
 
 // Searches movie and gets full info, then downloads images, including poster and backdrop.
 // Then inserts it into database.
-var searchMovie = function(filename, fullpath) {
+var searchMovie = function(filename, fullpath, extension) {
 	try {
 		searchname = filename.replace(/ \(.*/g, '');
 		console.log(searchname);
@@ -65,7 +67,7 @@ var searchMovie = function(filename, fullpath) {
 				// Fetch full movie info
 				if (result) {
 					console.log("fetching info for id: " + result);
-					getMovieByID(result.id, fullpath);
+					getMovieByID(result.id, fullpath, extension);
 				} else {
 					console.log('movie not found??????');
 				}
@@ -77,7 +79,7 @@ var searchMovie = function(filename, fullpath) {
 	}
 }
 
-var getMovieByID = function(id, fullpath) {
+var getMovieByID = function(id, fullpath, extension) {
 	try {
 		mdb.movieInfo({
 			id: id
@@ -94,7 +96,13 @@ var getMovieByID = function(id, fullpath) {
 			// Added time
 			movie_info.time_added = String(moment());
 
-			movies.insert(movie_info).run(connection);
+			ffmpeg.ffprobe(movie_info.fullpath, function(err, metadata) {
+			  console.dir(metadata);
+				movie_info.metadata = metadata;
+				movie_info.subtitle_path = movie_info.fullpath.slice(0, -extension.length) + ".srt";
+				movies.insert(movie_info).run(connection);
+			});
+
 		});
 	}
 	finally {
@@ -147,7 +155,7 @@ var walk = function(dir, done) {
 					if (valid_file_extensions.indexOf(file_extension) !== -1) {
 						results.push(file);
 						var basename = path.basename(file);
-						searchMovie(basename, file);
+						searchMovie(basename, file, file_extension);
 						sleep(3000);
 					}
 					next();
