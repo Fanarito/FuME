@@ -51,76 +51,61 @@ function sleep(milliseconds) {
 	}
 }
 
-// Searches movie and gets full info, then downloads images, including poster and backdrop.
-// Then inserts it into database.
-var searchMovie = function(filename, fullpath, extension) {
-	try {
-		searchname = filename.replace(/ \(.*/g, '');
-		console.log(searchname);
-		mdb.searchMovie({
-			query: searchname
-		}, function(err, search_res) {
-			if (search_res) {
-				result = search_res.results[0];
-				console.log("searched for " + searchname);
+/*
+* Searches for movie and gets full info, also downloads images.
+*/
+var searchMovie = function(filename, fullpath, extension, done) {
+	// Remove unnecessary guff like file extension
+	var searchName = filename.replace(/ \(.*/g, '');
+	console.log("Searching for: " + searchName);
 
-				// Fetch full movie info
-				if (result) {
-					console.log("fetching info for id: " + result);
-					getMovieByID(result.id, fullpath, extension);
-				} else {
-					console.log('movie not found??????');
-				}
-			}
-		});
-	}
-	finally {
-		console.log("searched for movie or crash");
-	}
-}
+	mdb.searchMovie({
+		query: searchName
+	}, function(err, search_res) {
+        if (search_res.results[0]){
+            // Get movie info
+            mdb.movieInfo({
+            id: search_res.results[0].id
+            }, function(err, info_res){
+                console.log("Info fetched");
+                downloadImages(info_res);
+                
+                var movie_info = info_res;
+                movie_info.fullpath = fullpath;
+                movie_info.id = String(movie_info.id);
+                //delete movie_info.id;
 
-var getMovieByID = function(id, fullpath, extension) {
-	try {
-		mdb.movieInfo({
-			id: id
-		}, function(err, res) {
-			console.log("movie info now fetched for " + res.original_title);
+                // Added time
+                movie_info.time_added = String(moment());
 
-			downloadImages(res);
-
-			var movie_info = res;
-			movie_info.fullpath = fullpath;
-			movie_info.moviedb_id = movie_info.id;
-			delete movie_info.id;
-
-			// Added time
-			movie_info.time_added = String(moment());
-
-			ffmpeg.ffprobe(movie_info.fullpath, function(err, metadata) {
-			  console.dir(metadata);
-				movie_info.metadata = metadata;
-				movie_info.subtitle_path = movie_info.fullpath.slice(0, -extension.length) + ".srt";
-				movies.insert(movie_info).run(connection);
-			});
-
-		});
-	}
-	finally {
-		console.log('this looks horrible');
-	}
+                ffmpeg.ffprobe(movie_info.fullpath, function(err, metadata) {
+                    //console.dir(metadata);
+                    movie_info.metadata = metadata;
+                    //movie_info.duration = moment.duration(metadata.format.duration, "seconds");
+                    movie_info.subtitle_path = movie_info.fullpath.slice(0, -extension.length) + ".srt";
+                    movies.insert(movie_info).run(connection);
+                    // All functions have run so this to get next file in walk loop
+                    done();
+                });
+            });   
+        } else {
+            console.log(searchName + " not found. Ignoring");
+            done();
+        }
+	});
 }
 
 var downloadImages = function(movie) {
 	// Download poster image
 	try {
-		console.log('downloading poster for ' + movie.original_title)
+		//console.log('downloading poster for ' + movie.original_title)
 		download(poster_download_path + movie.poster_path, './public/images' + movie.poster_path, function() {
-			console.log('poster download done');
-			console.log('downloading backdrop for' + movie.original_title)
-			download(backdrop_download_path + movie.backdrop_path, './public/images' + movie.backdrop_path, function() {
-				console.log('backdrop download done');
-			});
+			//console.log('poster download done');
 		});
+        //console.log('downloading backdrop for' + movie.original_title)
+        download(backdrop_download_path + movie.backdrop_path, './public/images' + movie.backdrop_path, function() {
+            //console.log('backdrop download done');
+        });
 	}
 	finally {
 		console.log("downloaded all images for " + movie.original_title);
@@ -155,10 +140,13 @@ var walk = function(dir, done) {
 					if (valid_file_extensions.indexOf(file_extension) !== -1) {
 						results.push(file);
 						var basename = path.basename(file);
-						searchMovie(basename, file, file_extension);
-						sleep(3000);
-					}
-					next();
+						sleep(1000);
+						searchMovie(basename, file, file_extension, function () {
+                            next();
+						});
+					} else {
+                        next();   
+                    }
 				}
 			});
 		})();
@@ -167,7 +155,9 @@ var walk = function(dir, done) {
 
 movieLibrary.forEach(function(element, index) {
 	console.log(element);
-	walk(element, function(err, results) {});
+	walk(element, function(err, results) {
+       console.log("Done walking " + element); 
+    });
 });
 //walk(movieLibrary, function(err, results) {});
 
