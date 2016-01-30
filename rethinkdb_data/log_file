@@ -1,0 +1,13 @@
+2016-01-21T09:50:27.848768025 0.188316s notice: Recursively removing directory /home/mediaserver/FuME/rethinkdb_data/tmp
+2016-01-21T09:50:27.880456300 0.220008s notice: Initializing directory /home/mediaserver/FuME/rethinkdb_data
+2016-01-21T09:50:27.880712588 0.220255s info: Creating a default database for your convenience. (This is because you ran 'rethinkdb' without 'create', 'serve', or '--join', and the directory '/home/mediaserver/FuME/rethinkdb_data' did not already exist or is empty.)
+2016-01-21T09:50:27.880795223 0.220337s notice: Running rethinkdb 2.2.3+1~0trusty (GCC 4.8.2)...
+2016-01-21T09:50:27.887562481 0.227111s notice: Running on Linux 3.13.0-46-generic x86_64
+2016-01-21T09:50:27.887867767 0.227410s notice: Loading data from directory /home/mediaserver/FuME/rethinkdb_data
+2016-01-21T09:50:28.162329642 0.501876s info: Automatically using cache size of 1159 MB
+2016-01-21T09:50:28.196003981 0.535547s error: TCP socket creation failed for port 29015: Address already in use.
+2016-01-21T09:50:36.039786000 0.093998s notice: Running rethinkdb 2.2.3+1~0trusty (GCC 4.8.2)...
+2016-01-21T09:50:36.046626930 0.100838s notice: Running on Linux 3.13.0-46-generic x86_64
+2016-01-21T09:50:36.046870869 0.101075s notice: Loading data from directory /home/mediaserver/FuME/rethinkdb_data
+2016-01-21T09:50:36.141675811 0.195884s info: Automatically using cache size of 1164 MB
+2016-01-21T09:50:36.143844951 0.198050s error: TCP socket creation failed for port 29015: Address already in use.
