@@ -116,7 +116,7 @@ var playMovie_Subtitles = function(id, res, startTime) {
 }
 
 var playShow = function(id, res, season, episode, startTime) {
-  r.db('test').table('shows').get(id).pluck('fullpath').run(connection, function(err, cursor) {
+  r.db('FuME').table('episodes').get(id).pluck('fullpath').run(connection, function(err, cursor) {
     if (err) {
       return next(err);
     }
@@ -171,12 +171,12 @@ router.get('/movies/subtitles/:id', function(req, res, next) {
 });
 
 router.get('/movies/:id/:hour/:min/:sec/', function(req, res, next) {
-  startTime = req.params.hour + ':' + req.params.min + ':' + req.params.sec;
+  var startTime = req.params.hour + ':' + req.params.min + ':' + req.params.sec;
   playMovie(req.params.id, res, startTime);
 });
 
 router.get('/movies/subtitles/:id/:hour/:min/:sec/', function(req, res, next) {
-  startTime = req.params.hour + ':' + req.params.min + ':' + req.params.sec;
+  var startTime = req.params.hour + ':' + req.params.min + ':' + req.params.sec;
   playMovie_Subtitles(req.params.id, res, startTime);
 });
 
@@ -185,11 +185,11 @@ router.get('/movies/subtitles/:id', function(req, res, next) {
   fs.createReadStream("./toSomeFile").pipe(res);
 });
 
-router.get('/shows/:id/:season/:episode', function(req, res, next) {
+router.get('/episode/:id', function(req, res, next) {
   playShow(req.params.id, res, req.params.season, req.params.episode, "0:0:0");
 });
 
-router.get('/shows/:id/:season/:episode/:hour/:min/:sec/', function(req, res, next) {
+router.get('/episode/:id/:hour/:min/:sec/', function(req, res, next) {
   startTime = req.params.hour + ':' + req.params.min + ':' + req.params.sec;
   playShow(req.params.id, res, req.params.season, req.params.episode, startTime);
 });
