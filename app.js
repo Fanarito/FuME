@@ -8,6 +8,7 @@ var bodyParser = require('body-parser');
 var routes = require('./routes/index');
 var users = require('./routes/users');
 var movies = require('./routes/movies');
+var shows = require('./routes/shows.js');
 var play = require('./routes/play');
 
 var app = express();
@@ -19,6 +20,7 @@ app.set('view engine', 'jade');
 // uncomment after placing your favicon in /public
 //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(logger('dev'));
+app.set('json spaces', 2);
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
@@ -33,6 +35,7 @@ app.use(function(req, res, next) {
 app.use('/', routes);
 app.use('/users', users);
 app.use('/movies', movies);
+app.use('/shows', shows);
 app.use('/play', play);
 
 // catch 404 and forward to error handler

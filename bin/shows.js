@@ -69,7 +69,7 @@ let downloadImages = function (movie) {
 
 let getEpisode = function (show_id, season_episode, fullpath, extension, done) {
     if (!isNaN(season_episode[0]) && !isNaN(season_episode[1])) {
-        episodes.filter({ show: show_id, season_number: season_episode[0], episode_number: season_episode[1] }).run(connection, function (err, cursor) {
+        episodes.filter({ data: { show: show_id, season_number: season_episode[0], episode_number: season_episode[1] }}).run(connection, function (err, cursor) {
             cursor.toArray(function (err, result) {
                 if (err) throw err;
 
@@ -89,17 +89,19 @@ let getEpisode = function (show_id, season_episode, fullpath, extension, done) {
                         }
                         , function (err, epi_res) {
                             if (epi_res) {
-                                epi_res.time_added = String(moment());
-                                epi_res.fullpath = fullpath;
-                                epi_res.id = String(epi_res.id);
-                                epi_res.subtitle_path = epi_res.fullpath.slice(0, -extension.length) + ".srt";
-                                epi_res.show = show_id;
-                                episodes.insert(epi_res).run(connection);
+                                let epi_data = {};
+                                epi_data = epi_res;
+                                epi_data.type = "episode";
+                                epi_data.time_added = String(moment());
+                                epi_data.fullpath = fullpath;
+                                epi_data.id = String(epi_data.id);
+                                epi_data.subtitle_path = epi_data.fullpath.slice(0, -extension.length) + ".srt";
+                                epi_data.show = show_id;
+                                episodes.insert(epi_data).run(connection);
                                 console.log("episode info fetched");
                             } else {
                                 console.log("episode not found");
                             }
-                    
                             // All functions have run so this to get next file in walk loop
                             // Sleep 333 milliseconds because it made 1 request
                             sleep(333);
@@ -110,7 +112,7 @@ let getEpisode = function (show_id, season_episode, fullpath, extension, done) {
         });
     } else {
         console.log("episode or season number is not a number");
-        done();   
+        done();
     }
 }
 
@@ -128,7 +130,7 @@ let searchShow = function (filename, fullpath, extension, done) {
     season_episode[0] = parseInt(season_episode[0], 10);
     season_episode[1] = parseInt(season_episode[1], 10);
 
-    shows.filter({ search_name: show }).run(connection, function (err, cursor) {
+    shows.filter({ data: { search_name: show }}).run(connection, function (err, cursor) {
         cursor.toArray(function (err, result) {
             if (err) throw err;
             // Check if show is in database
@@ -148,8 +150,9 @@ let searchShow = function (filename, fullpath, extension, done) {
                             console.log("info fetched");
                             //console.log(info_res);
                             downloadImages(info_res);
-
-                            let tv_res = info_res;
+                            let tv_res = {};
+                            tv_res = info_res;
+                            tv_res.type = "tv_show";
                             tv_res.time_added = String(moment());
                             //tv_res.fullpath = fullpath;
                             tv_res.id = String(tv_res.id);

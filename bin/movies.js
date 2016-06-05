@@ -59,40 +59,51 @@ var searchMovie = function(filename, fullpath, extension, done) {
 	var searchName = filename.replace(/ \(.*/g, '');
 	console.log("Searching for: " + searchName);
 
-	mdb.searchMovie({
-		query: searchName
-	}, function(err, search_res) {
-        if (search_res.results[0]){
-            // Get movie info
-            mdb.movieInfo({
-            id: search_res.results[0].id
-            }, function(err, info_res){
-                console.log("Info fetched");
-                downloadImages(info_res);
-                
-                var movie_info = info_res;
-                movie_info.fullpath = fullpath;
-                movie_info.id = String(movie_info.id);
-                //delete movie_info.id;
+    movies.filter({search_name: searchName }).run(connection, function(err, cursor){
+        cursor.toArray(function(err, result){
+            if(result.length > 0) {
+                movies.get(result[0].id).update({fullpath: fullpath});
+                done();
+            } else {
+                mdb.searchMovie({
+                    query: searchName
+                }, function(err, search_res) {
+                    if (search_res.results[0]){
+                        // Get movie info
+                        mdb.movieInfo({
+                        id: search_res.results[0].id
+                        }, function(err, info_res){
+                            console.log("Info fetched");
+                            downloadImages(info_res);
 
-                // Added time
-                movie_info.time_added = String(moment());
+                            movie_info = info_res;
+                            movie_info.fullpath = fullpath;
+                            movie_info.id = String(movie_info.id);
+                            movie_info.type = "movie";
+                            //delete movie_info.id;
 
-                ffmpeg.ffprobe(movie_info.fullpath, function(err, metadata) {
-                    //console.dir(metadata);
-                    movie_info.metadata = metadata;
-                    //movie_info.duration = moment.duration(metadata.format.duration, "seconds");
-                    movie_info.subtitle_path = movie_info.fullpath.slice(0, -extension.length) + ".srt";
-                    movies.insert(movie_info).run(connection);
-                    // All functions have run so this to get next file in walk loop
-                    done();
+                            // Added time
+                            movie_info.time_added = String(moment());
+
+                            ffmpeg.ffprobe(movie_info.fullpath, function(err, metadata) {
+                                //console.dir(metadata);
+                                movie_info.metadata = metadata;
+                                movie_info.search_name = searchName;
+                                //movie_info.duration = moment.duration(metadata.format.duration, "seconds");
+                                //movie_info.data.subtitle_path = movie_info.data.fullpath.slice(0, -extension.length) + ".srt";
+                                movies.insert(movie_info).run(connection);
+                                // All functions have run so this to get next file in walk loop
+                                done();
+                            });
+                        });
+                    } else {
+                        console.log(searchName + " not found. Ignoring");
+                        done();
+                    }
                 });
-            });   
-        } else {
-            console.log(searchName + " not found. Ignoring");
-            done();
-        }
-	});
+            }
+        });
+    });
 }
 
 var downloadImages = function(movie) {
@@ -140,7 +151,7 @@ var walk = function(dir, done) {
 					if (valid_file_extensions.indexOf(file_extension) !== -1) {
 						results.push(file);
 						var basename = path.basename(file);
-						sleep(1000);
+						sleep(666);
 						searchMovie(basename, file, file_extension, function () {
                             next();
 						});
